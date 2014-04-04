@@ -1,27 +1,29 @@
-(ns proper.checks
+(ns proper-checks.core
   (:require [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :as prop]
             [clojure.test.check :as tc]))
 
-{:init-fn (fn [x] real-system)
- :init-md (fn [x] model-system)
- :actions {fn1 {:run (fn [x] x)
-                :post (fn [x] (or false true))}
-           fn2 ...
-           fn3 ...}}
+;;fns [fn1, fn2, fn3]
+;;pos [po1, po2, po3]
+;;test-suite: {
+;;init fn
+;;init md
+;;[
+;;fn1 -> fn -> fn -> fn
+;;md1 -> md -> md -> md
+;;ps1 -> ps -> ps -> ps
+;;]
+;;             }
 
-fns [fn1, fn2, fn3]
-pos [po1, po2, po3]
 
-test-suite: {
-init fn
-init md
-[
-fn1 -> fn -> fn -> fn
-md1 -> md -> md -> md
-ps1 -> ps -> ps -> ps
-]
-             }
+(def counter (atom 0))
+(defn incr [x] (swap! x inc) @x)
+(defn decr [x] (swap! x dec) @x)
+(def getc deref)
+
+(def model-fns {incr inc
+                decr dec
+                getc identity})
 
 (tc/quick-check 4
                 (prop/for-all [fns (gen/not-empty (gen/vector (gen/elements [incr decr getc])))]
@@ -36,3 +38,30 @@ ps1 -> ps -> ps -> ps
                                                 exp
                                                 (println (str act " != " exp))))))
                                         0 fns))))
+(def suite {:init-fn (fn [] (atom 0))
+            :init-md (fn [] 0)
+            :actions {getc {:run (fn [x] (identity x))
+                            :post (fn [real modeled] (= real modeled))}
+                      incr {:run inc :post (constantly true)}
+                      decr {:run dec :post (constantly true)}}})
+
+
+(defn proper-check [amount suite]
+  (tc/quick-check amount 
+                  (let [actions (keys (:actions suite))] 
+                    (prop/for-all [fns (gen/not-empty (gen/vector (gen/elements actions)))]
+                                  (do
+                                    (let [init-real ((:init-fn suite))
+                                          init-model ((:init-md suite))]
+                                      (reduce (fn [acc fun]
+                                                (if (or (false? acc) (nil? acc))
+                                                  false
+                                                  (let [real-result (fun init-real)
+                                                        model-fn (get (:actions suite) fun)
+                                                        model-result ((:run model-fn) acc)]
+                                                    (if ((:post model-fn) real-result model-result)
+                                                      model-result
+                                                      nil))))
+                                              init-model
+                                              fns)))))))
+(proper-check 300 suite)
