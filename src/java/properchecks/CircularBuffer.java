@@ -9,9 +9,9 @@ public class CircularBuffer {
   List<Long> list;
 
   public CircularBuffer(int n) {
-    sz = n;
-    list = new ArrayList<Long>(n);
-    for (int i = 0; i < n; i++) {
+    sz = n+1;
+    list = new ArrayList<Long>(n+1);
+    for (int i = 0; i < n+1; i++) {
       list.add(null);
     }
   }
