@@ -28,6 +28,6 @@ public class CircularBuffer {
   }
 
   public int size() {
-    return (inp - outp) % sz;
+    return (inp - outp + sz) % sz;
   }
 }
